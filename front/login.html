@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+</head>
+<body>
+    <form id="form" method="get" action="/api/user/auth">
+        <input type="text" name="name" placeholder="Имя">
+        <input type="password" name="password" placeholder="Пароль">
+        <button type="submit">Авторизация</button>
+    </form>
+    <script>
+        form = document.querySelector("#form")
+        form.onsubmit = async (e) => {
+            e.preventDefault()
+            let data = {};
+            new FormData(form).forEach((value, key) => data[key] = value)
+            const response = await fetch(form.action +"?"+ new URLSearchParams(data));
+
+            if (response.status === 200) {
+                window.location.href = "/"
+            } else {
+                const result = await response.json();
+                alert(result['message'])
+            }
+        }
+    </script>
+</body>
+</html>

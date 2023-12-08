@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+</head>
+<body>
+    <form id="form" method="post" action="/api/user/reg">
+        <input type="text" name="name" placeholder="Имя">
+        <input type="password" name="password" placeholder="Пароль">
+        <input type="number" name="age" placeholder="Возраст" min="2" max="98">
+        <button type="submit">Регистрация</button>
+    </form>
+<script>
+    form = document.querySelector("#form")
+    form.onsubmit = async (e) => {
+        e.preventDefault()
+        let data = {};
+        new FormData(form).forEach((value, key) => data[key] = value)
+        data["age"] = parseInt(data["age"], 10);
+        let jsonData = JSON.stringify(data);
+        const response = await fetch(form.action, {
+            method: "POST",
+            body: jsonData
+        });
+
+        if (response.status === 200) {
+            window.location.href = "/"
+        } else {
+            const result = await response.json();
+            alert(result['message'])
+        }
+    }
+</script>
+</body>
+</html>

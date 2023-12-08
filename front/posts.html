@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <link href="./styles/post.css" rel="stylesheet">
+    <link href="./styles/main.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>Посты</title>
+
+    <script>
+        let addPost, overlay, postAddForm, postUpdateForm;
+        templatePost = (post) => {
+            let created = new Date(post.created);
+            let updated = new Date(post.updated);
+            return `<div class="post-contaier" post-id='${post.id}'>
+                        <div class="post-text">${post.text}</div>
+                        <div class="post-time-container">
+                             <div class="post-time post-created"><img src="./icons/point.svg">${created.toLocaleDateString()} ${created.toLocaleTimeString()}</div>
+                             <div class="post-time post-updated"><img src="./icons/history.svg">${updated.toLocaleDateString()} ${updated.toLocaleTimeString()}</div>
+                        </div>
+                        <div class="post-buttons">
+                            <img class="post-update" onclick="updatePost(this.parentNode.parentNode)" src="./icons/update.svg">
+                            <img class="post-delete" onclick="deletePost(this.parentNode.parentNode)" src="./icons/delete.svg">
+                        </div>
+                    </div>`
+        }
+
+        loadPosts = async (page = 1) => {
+            console.log(page)
+            let posts = "";
+
+            let response = await fetch('http://localhost:9898/api/posts?page=' + page, {
+                method: "GET"
+            });
+
+            let result = await response.json();
+            if (response.status !== 200) {
+                console.log(result.message)
+                return [response, result, posts]
+            }
+
+            if (result.data != null) {
+                for (let i = 0; i < result.data.length; i++) {
+                    let post = result.data[i];
+                    posts += templatePost(post)
+                }
+            }
+            return [response, result, posts];
+        }
+
+        updatePost = async (e) => {
+            let id = e.getAttribute('post-id')
+            postUpdateForm.hidden = false
+            postAddForm.hidden = true
+            overlay.hidden = false;
+            postUpdateForm.querySelector("#post-update-id").value = id;
+            postUpdateForm.querySelector("#post-update-text").value = e.querySelector(".post-text").innerHTML
+        }
+        deletePost = async (e) => {
+            let id = e.getAttribute('post-id')
+            const response = await fetch('http://localhost:9898/api/posts/' + id, {
+                method: "DELETE"
+            });
+            if (response.status !== 200) {
+                const result = await response.json();
+                alert(result.message)
+            } else {
+                e.remove()
+            }
+        }
+        window.onload = async (e) => {
+            addPost = document.querySelector("#add-post-button")
+            overlay = document.querySelector(".overlay")
+            postAddForm = overlay.querySelector("#post-add")
+            postUpdateForm = overlay.querySelector("#post-update")
+            postAddForm.onclick = (e) => {
+                e.stopPropagation()
+            }
+            postUpdateForm.onclick = (e) => {
+                e.stopPropagation()
+            }
+            postAddForm.onsubmit = async (e) => {
+                e.preventDefault()
+                let data = {};
+                new FormData(postAddForm).forEach((value, key) => data[key] = value)
+                let jsonData = JSON.stringify(data);
+                const response = await fetch('http://localhost:9898/api/posts', {
+                    method: "POST",
+                    body: jsonData
+                })
+
+                const result = await response.json();
+                if (result.success) {
+                    let post = result.data[0];
+                    let posts = document.querySelector("#posts")
+                    posts.innerHTML = templatePost(post) + posts.innerHTML
+                    overlay.hidden = true;
+                } else {
+                    alert(result.message)
+                }
+            }
+            postUpdateForm.onsubmit = async (e) => {
+                e.preventDefault()
+                let data = {};
+                new FormData(postUpdateForm).forEach((value, key) => data[key] = value)
+                data["id"] = parseInt(data["id"], 10);
+                let jsonData = JSON.stringify(data);
+                const response = await fetch('http://localhost:9898/api/posts', {
+                    method: "PUT",
+                    body: jsonData
+                })
+
+                const result = await response.json();
+                if (result.success) {
+                    let post = result.data[0];
+                    let postElem = document.querySelector(`div[post-id="${data['id']}"]`)
+                    postElem.outerHTML = templatePost(post)
+                    overlay.hidden = true;
+                } else {
+                    alert(result.message)
+                }
+            }
+
+            overlay.onclick = (e) => {
+                overlay.hidden = true;
+            }
+            addPost.onclick = (e) => {
+                postUpdateForm.hidden = true
+                postAddForm.hidden = false
+                overlay.hidden = false;
+            }
+
+            let currentPage = 1;
+            let allPages = currentPage;
+            let posts = document.querySelector("#posts")
+            let container = document.querySelector(".container")
+            let isEnd = false;
+            let startPage = currentPage;
+            let endPage = currentPage;
+            container.onscroll = (e) => {
+                if (!isEnd && e.target.scrollHeight - e.target.scrollTop < e.target.clientHeight + 150) {
+                    isEnd = true;
+                    currentPage++;
+                    (async () => {
+                        let r = await loadPosts(currentPage);
+                        let response = r[0];
+                        let result = r[1];
+                        allPages = result.pages;
+                        posts.innerHTML += r[2];
+                        if (currentPage < allPages)
+                            isEnd = false;
+                    })();
+                }
+            }
+
+            let r = await loadPosts(currentPage);
+
+            let response = r[0];
+            let result = r[1];
+            posts.innerHTML = r[2];
+
+            allPages = result.pages;
+
+            if (response.status === 401) {
+                window.location.href = "/login.html"
+            } else if (response.status !== 200) {
+                alert(result.message)
+            }
+
+            response = await fetch('http://localhost:9898/api/user', {
+                method: "GET"
+            });
+
+            result = await response.json();
+            let userInfo = document.querySelector("#user-info")
+            userInfo.querySelector("#user-name").innerHTML = result.name;
+            userInfo.querySelector("#user-age").innerHTML = result.age;
+        }
+    </script>
+</head>
+<body>
+<div id="user-info">
+    <div id="user-name"></div>
+    ,
+    <div id="user-age"></div>
+</div>
+<div class="container">
+    <div id="posts">
+        <div class="post-contaier" post-id="0">
+            <div class="post-text">Test</div>
+            <div class="post-time-container">
+                <div class="post-time post-created">12.11.2023 19:38:07</div>
+                <div class="post-time post-updated">12.11.2023 19:41:15</div>
+            </div>
+        </div>
+    </div>
+    <div id="posts-footer">
+        <div id="add-post-button">Добавить пост</div>
+    </div>
+</div>
+<div class="overlay" hidden>
+    <div id="shadow"></div>
+    <form class="form" id="post-add">
+        <label>
+            Текст поста
+            <textarea name="text"></textarea>
+        </label>
+        <button type="submit">Добавить</button>
+    </form>
+    <form class="form" id="post-update">
+        <input id="post-update-id" type="number" name="id" hidden>
+        <label>
+            Текст поста
+            <textarea id="post-update-text" name="text"></textarea>
+        </label>
+        <button type="submit">Обновить</button>
+    </form>
+</div>
+</body>
+</html>
